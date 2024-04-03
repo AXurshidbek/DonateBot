@@ -5,16 +5,16 @@ import aiogram
 from aiogram import Bot, Dispatcher, types, executor
 from aiogram.types import ParseMode
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-# from db_config import DBConfig
+from db_config import DBConfig
 
 
-# cursor = DBConfig()
+cursor = DBConfig()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
-bot = Bot(token="6830102506:AAFVPp9CVF7jvJ7RKXjHtJQpraXMCgSak5c")
+bot = Bot(token="6509950356:AAFJJafE1FSW_Ty9bnwlCFSYjnXgWc2KuF8")
 dp = Dispatcher(bot)
 admin_user_id = [5729115581]
 
