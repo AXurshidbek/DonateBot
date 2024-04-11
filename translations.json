@@ -1,0 +1,15 @@
+{
+  "en": {
+    "ask_name": "Please enter your name:",
+    "register": "\uD83D\uDCDD Register",
+    "login":
+  },
+  "ru": {
+    "hello": "Привет!",
+    "greet": "Добро пожаловать в наш бот!"
+  },
+  "uz": {
+    "hello": "Salom!",
+    "greet": "Botimizga xush kelibsiz!"
+  }
+}
