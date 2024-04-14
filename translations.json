@@ -2,14 +2,79 @@
   "en": {
     "ask_name": "Please enter your name:",
     "register": "\uD83D\uDCDD Register",
-    "login":
+    "login": "\uD83D\uDCDD Login",
+    "welcome_message": {
+      "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
+      "ru": "Привет, {first_name}.\nЭто бот для пожертвований.\nВыберите язык для использования бота.",
+      "en": "Hello {first_name}.\nThis is a Donation bot.\nChoose the language to use the bot."
+    },
+    "select_option": "Please select an option:",
+    "register_successful": "Your account has been created.",
+    "authenticate_successful": "Your account has been authenticated.",
+    "registration_successful": "Registration successful!",
+    "login_message": "Please enter your email:",
+    "email_not_found": "Email not found. Please try again:",
+    "enter_password": "Please enter your password.",
+    "incorrect_password": "Incorrect password. Please try again.",
+    "logged_in": "You have successfully logged in.",
+    "main_menu": "Please select an option:",
+    "shop_not_implemented": "Shop function is not implemented yet.",
+    "top_up_balance_not_implemented": "Top up balance function is not implemented yet.",
+    "orders_history_not_implemented": "Orders history function is not implemented yet.",
+    "payments_history_not_implemented": "Payments history function is not implemented yet.",
+    "profile_not_implemented": "Profile function is not implemented yet.",
+    "settings_not_implemented": "Settings function is not implemented yet."
   },
   "ru": {
-    "hello": "Привет!",
-    "greet": "Добро пожаловать в наш бот!"
+    "ask_name": "Пожалуйста, введите Ваше имя:",
+    "register": "\uD83D\uDCDD Зарегистрироваться",
+    "login": "\uD83D\uDCDD Login",
+    "welcome_message": {
+      "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
+      "ru": "Привет, {first_name}.\nЭто бот для пожертвований.\nВыберите язык для использования бота.",
+      "en": "Hello {first_name}.\nThis is a Donation bot.\nChoose the language to use the bot."
+    },
+    "select_option": "Пожалуйста, выберите опцию:",
+    "register_successful": "Ваш аккаунт был создан.",
+    "authenticate_successful": "Ваш аккаунт был аутентифицирован.",
+    "registration_successful": "Регистрация успешна!",
+    "login_message": "Пожалуйста, введите Ваш email:",
+    "email_not_found": "Email не найден. Пожалуйста, попробуйте еще раз:",
+    "enter_password": "Пожалуйста, введите Ваш пароль.",
+    "incorrect_password": "Неправильный пароль. Пожалуйста, попробуйте еще раз.",
+    "logged_in": "Вы успешно вошли в систему.",
+    "main_menu": "Пожалуйста, выберите опцию:",
+    "shop_not_implemented": "Функция магазина пока не реализована.",
+    "top_up_balance_not_implemented": "Функция пополнения баланса пока не реализована.",
+    "orders_history_not_implemented": "Функция истории заказов пока не реализована.",
+    "payments_history_not_implemented": "Функция истории платежей пока не реализована.",
+    "profile_not_implemented": "Функция профиля пока не реализована.",
+    "settings_not_implemented": "Функция настроек пока не реализована."
   },
   "uz": {
-    "hello": "Salom!",
-    "greet": "Botimizga xush kelibsiz!"
+    "ask_name": "Iltimos, ismingizni kiriting:",
+    "register": "\uD83D\uDCDD Roʻyxatdan oʻtish",
+    "login": "\uD83D\uDCDD Login",
+    "welcome_message": {
+      "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
+      "ru": "Привет, {first_name}.\nЭто бот для пожертвований.\nВыберите язык для использования бота.",
+      "en": "Hello {first_name}.\nThis is a Donation bot.\nChoose the language to use the bot."
+    },
+    "select_option": "Iltimos, variantni tanlang:",
+    "register_successful": "Sizning hisobingiz yaratildi.",
+    "authenticate_successful": "Sizning hisobingiz tasdiqlandi.",
+    "registration_successful": "Ro'yxatdan o'tish muvaffaqiyatli yakunlandi!",
+    "login_message": "Iltimos, emailingizni kiriting:",
+    "email_not_found": "Email topilmadi. Iltimos, qayta urinib ko'ring:",
+    "enter_password": "Iltimos, parolingizni kiriting.",
+    "incorrect_password": "Noto'g'ri parol. Iltimos, qayta urinib ko'ring.",
+    "logged_in": "Siz muvaffaqiyatli kirdingiz.",
+    "main_menu": "Iltimos, variantni tanlang:",
+    "shop_not_implemented": "Do'kon funksiyasi hali amalga oshirilmagan.",
+    "top_up_balance_not_implemented": "Balansni to'ldirish funksiyasi hali amalga oshirilmagan.",
+    "orders_history_not_implemented": "Buyurtmalar tarixi funksiyasi hali amalga oshirilmagan.",
+    "payments_history_not_implemented": "To'lov tarixi funksiyasi hali amalga oshirilmagan.",
+    "profile_not_implemented": "Profil funksiyasi hali amalga oshirilmagan.",
+    "settings_not_implemented": "Sozlamalar funksiyasi hali amalga oshirilmagan."
   }
 }
