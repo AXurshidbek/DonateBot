@@ -1,7 +1,7 @@
 {
   "en": {
-    "register": "\uD83D\uDCDD Register",
-    "login": "\uD83D\uDCDD Login",
+    "register": "📝 Register",
+    "login": "📝 Login",
     "ask_name": "Please enter your name:",
     "welcome_message": {
       "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
@@ -9,29 +9,25 @@
       "en": "Hello {first_name}.\nThis is a Donation bot.\nChoose the language to use the bot."
     },
     "select_option": "Please select an option:",
-    "register_successful": "Your account has been created✅.",
-    "authenticate_successful": "Your account has been authenticated✔\uFE0F.",
-    "registration_successful": "Registration successful!✅",
-    "login_message": "Please enter your email:\uD83D\uDCE7",
-    "email_not_found": "Email not found. Please try again:\uD83D\uDD04",
-    "enter_password": "Please enter your password.#\uFE0F⃣",
-    "incorrect_password": "Incorrect password. Please try again.\uD83D\uDD04",
-    "logged_in": "You have successfully logged in.✅",
+    "register_successful": "Your account has been created.",
+    "authenticate_successful": "Your account has been authenticated.",
+    "registration_successful": "Registration successful!",
+    "login_message": "Please enter your email:",
+    "email_not_found": "Email not found. Please try again:",
+    "enter_password": "Please enter your password.",
+    "incorrect_password": "Incorrect password. Please try again.",
+    "logged_in": "You have successfully logged in.",
     "main_menu": "Please select an option:",
     "shop_not_implemented": "Shop function is not implemented yet.",
     "top_up_balance_not_implemented": "Top up balance function is not implemented yet.",
     "orders_history_not_implemented": "Orders history function is not implemented yet.",
     "payments_history_not_implemented": "Payments history function is not implemented yet.",
     "profile_not_implemented": "Profile function is not implemented yet.",
-    "settings_not_implemented": "Settings function is not implemented yet.",
-    "edit_product_name": "You selected to edit the name of the product.",
-    "edit_product_quantity": "Please enter quantity of the product.",
-    "edit_product_price": "Please change price of the product.",
-    "edit_card_name": "Please change price of the card."
+    "settings_not_implemented": "Settings function is not implemented yet."
   },
   "ru": {
-    "register": "\uD83D\uDCDD Зарегистрироваться",
-    "login": "\uD83D\uDCDD Login",
+    "register": "📝 Зарегистрироваться",
+    "login": "📝 Login",
     "ask_name": "Пожалуйста, введите Ваше имя:",
     "welcome_message": {
       "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
@@ -53,15 +49,11 @@
     "orders_history_not_implemented": "Функция истории заказов пока не реализована.",
     "payments_history_not_implemented": "Функция истории платежей пока не реализована.",
     "profile_not_implemented": "Функция профиля пока не реализована.",
-    "settings_not_implemented": "Функция настроек пока не реализована.",
-    "edit_product_name": "Вы выбрали изменить название продукта.",
-    "edit_product_quantity": "Пожалуйста, введите количество продукта.",
-    "edit_product_price": "Пожалуйста, измените цену продукта.",
-    "edit_card_name": "Пожалуйста, измените название карты."
+    "settings_not_implemented": "Функция настроек пока не реализована."
   },
   "uz": {
-    "register": "\uD83D\uDCDD Roʻyxatdan oʻtish",
-    "login": "\uD83D\uDCDD Login",
+    "register": "📝 Roʻyxatdan oʻtish",
+    "login": "📝 Login",
     "ask_name": "Iltimos, ismingizni kiriting:",
     "welcome_message": {
       "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
@@ -83,10 +75,6 @@
     "orders_history_not_implemented": "Buyurtmlar tarixi funksiyasi hali amalga oshirilmagan.",
     "payments_history_not_implemented": "To'lov tarixi funksiyasi hali amalga oshirilmagan.",
     "profile_not_implemented": "Profil funksiyasi hali amalga oshirilmagan.",
-    "settings_not_implemented": "Sozlamalar funksiyasi hali amalga oshirilmagan.",
-    "edit_product_name": "Mahsulot nomini tahrirlashni tanladingiz, yangi nom kiriting:",
-    "edit_product_quantity": "Mahsulotning miqdorini kiritng.",
-    "edit_product_price": "Mahsulot narxini kiriting.",
-    "edit_card_name": "Karta nomini o'zgartirish. Yangi nomni kiriting."
+    "settings_not_implemented": "Sozlamalar funksiyasi hali amalga oshirilmagan."
   }
 }

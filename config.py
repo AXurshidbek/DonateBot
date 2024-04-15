@@ -423,7 +423,7 @@ async def process_gamer_id(message: types.Message, state: FSMContext):
         else:
             await message.answer(f"Failed to place order for product ID {product_id}. Please try again later.")
     else:
-        await bot.send_message(tg_user_id, "Balansingizda pul yetarli emas. Balansingizni to'ldirib qayradan urinib ko'rin")
+        await bot.send_message(tg_user_id, "Balansingizda pul yetarli emas. Balansingizni to'ldirib qayradan urinib ko'ring")
 
 @dp.callback_query_handler(lambda query: query.data.startswith('confirm_order_'))
 async def confirm_order(callback_query: types.CallbackQuery):
