@@ -18,3 +18,4 @@ pydantic_core==2.14.6
 pytz==2024.1
 typing_extensions==4.10.0
 yarl==1.9.4
+requests~=2.31.0
