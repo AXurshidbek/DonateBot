@@ -1,8 +1,8 @@
 {
   "en": {
-    "ask_name": "Please enter your name:",
     "register": "\uD83D\uDCDD Register",
     "login": "\uD83D\uDCDD Login",
+    "ask_name": "Please enter your name:",
     "welcome_message": {
       "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
       "ru": "Привет, {first_name}.\nЭто бот для пожертвований.\nВыберите язык для использования бота.",
@@ -26,9 +26,9 @@
     "settings_not_implemented": "Settings function is not implemented yet."
   },
   "ru": {
-    "ask_name": "Пожалуйста, введите Ваше имя:",
     "register": "\uD83D\uDCDD Зарегистрироваться",
     "login": "\uD83D\uDCDD Login",
+    "ask_name": "Пожалуйста, введите Ваше имя:",
     "welcome_message": {
       "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
       "ru": "Привет, {first_name}.\nЭто бот для пожертвований.\nВыберите язык для использования бота.",
@@ -52,9 +52,9 @@
     "settings_not_implemented": "Функция настроек пока не реализована."
   },
   "uz": {
-    "ask_name": "Iltimos, ismingizni kiriting:",
     "register": "\uD83D\uDCDD Roʻyxatdan oʻtish",
     "login": "\uD83D\uDCDD Login",
+    "ask_name": "Iltimos, ismingizni kiriting:",
     "welcome_message": {
       "uz": "Salom {first_name}.\nBu Donation bot.\nBotdan foydalanish tilini tanlang.",
       "ru": "Привет, {first_name}.\nЭто бот для пожертвований.\nВыберите язык для использования бота.",
