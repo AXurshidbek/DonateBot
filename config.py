@@ -3,11 +3,10 @@ import re
 import json
 import logging
 from datetime import datetime
-
 import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram import executor
-from aiogram.types import InputFile, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ParseMode
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
@@ -65,9 +64,21 @@ class CardCreation(StatesGroup):
     TypeCard = State()
     Description = State()
 
-class SingleDataForm(StatesGroup):
+class SingleDataAppForm(StatesGroup):
     id = State()
     text = State()
+class SingleDataProductForm(StatesGroup):
+    id = State()
+    type = State()
+    text = State()
+class SingleDataCardForm(StatesGroup):
+    id = State()
+    type = State()
+    text = State()
+
+class PaginationForm(StatesGroup):
+    json = State()
+    index = State()
 
 CANCEL_KEYBOARD = types.ReplyKeyboardMarkup(keyboard=[
                         [types.KeyboardButton("Cancel ❌")]],
@@ -173,20 +184,18 @@ async def start_registration(message: types.Message):
 async def process_name(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['name'] = message.text
-    # keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-    # keyboard.add(KeyboardButton(text="Share contact", request_contact=True))
-    # , reply_markup = keyboard
-    await message.answer("Please share your phone number with us.")
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add(KeyboardButton(text="Share contact", request_contact=True))
+    await message.answer("Please share your phone number with us.", reply_markup=keyboard)
     await RegistrationForm.phone_number.set()
 
 @dp.message_handler(state=RegistrationForm.phone_number)
 async def process_phone_number(message: types.Message, state: FSMContext):
+    if message.contact:
+        phone_number = message.contact.phone_number
+    else:
+        phone_number = message.text
     async with state.proxy() as data:
-        if message.contact:
-            phone_number = message.contact.phone_number
-        else:
-            phone_number = message.text
-
         data['phone_number'] = phone_number
 
     logging.info("Phone number received: %s", phone_number)
@@ -237,28 +246,38 @@ async def process_password2(message: types.Message, state: FSMContext):
             "phone_number": data['phone_number'],
             "email": data['email'],
             "password": data['password1'],
-            "user_id": message.from_user.id,
             "balance": 0
         }
         headers = {'Content-Type': 'application/json'}
         response = requests.post(url, json=user, headers=headers)
         if response.status_code == 201:
+            responseUser = response.json()
             await bot.send_message(message.from_user.id, f'Your account has been created.')
-            authenticate = requests.get(f'{BASE_URL}/user/authenticate/{message.from_user.id}')
+            authenticate = requests.get(f'{BASE_URL}/user/authenticate/{message.from_user.id}/{responseUser["id"]}')
             if authenticate.status_code == 200:
                 await bot.send_message(message.from_user.id, f'Your account has been authenticated.')
+                await send_main_menu(message.from_user.id)
             else:
                 await bot.send_message(message.from_user.id, f'Please try again.')
 
     await message.answer("Registration successful!")
-    await send_main_menu(message.from_user.id)
+
     await state.finish()
 
 #### LOGIN ####
-@dp.message_handler(lambda message: message.text == "Login")
+@dp.message_handler(lambda message: message.text == "📝 Login")
 async def start_login(message: types.Message):
-    await bot.send_message(message.from_user.id, "Please enter your email:")
-    await LoginForm.email.set()
+    tg_user_id = message.from_user.id
+    url = f'{BASE_URL}/user/is_authenticated/{tg_user_id}'
+    response = requests.get(url)
+    if response.status_code == 200:
+        if response.json() == True:
+            await bot.send_message(message.from_user.id, "You are now logged in.")
+        else:
+            await bot.send_message(message.from_user.id, "Please enter your email:")
+            await LoginForm.email.set()
+    else:
+        logging.info(f'Error while logging in user: {message.from_user.id}')
     return
 
 @dp.message_handler(state=LoginForm.email)
@@ -355,7 +374,6 @@ async def process_buy_app(callback_query: types.CallbackQuery):
     url1 = f'{BASE_URL}/products/{app_id}'
     response = requests.get(url1)
     products = response.json()
-
     keyboard = InlineKeyboardMarkup(row_width=1)
     for product in products:
         button_text = f"{product['quantity']} {product['name']} - {product['price']}"
@@ -364,7 +382,8 @@ async def process_buy_app(callback_query: types.CallbackQuery):
     url2 = f'{BASE_URL}/app/{app_id}'
     response = requests.get(url2)
     app_data = response.json()
-    await bot.send_photo(callback_query.message.chat.id, app_data['app_pic'], caption=app_data['name'], reply_markup=keyboard)
+    photo = app_data["app_pic"]
+    await bot.send_photo(callback_query.from_user.id, photo, caption=app_data['name'], reply_markup=keyboard)
     await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
     await callback_query.answer()
 
@@ -384,7 +403,7 @@ async def process_gamer_id(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['gamer_id'] = gamer_id
         product_id = data['product']
-
+    await state.finish()
     url = f'{BASE_URL}/product/{product_id}'
     response = requests.get(url)
     product_data = response.json()
@@ -396,7 +415,6 @@ async def process_gamer_id(message: types.Message, state: FSMContext):
     tg_user_id = message.from_user.id
     url0 = f'{BASE_URL}/user/get_user/{tg_user_id}'
     user = requests.get(url0).json()
-    state.finish()
     if user['balance'] >= float(product_data['price']):
         order_data = {
             "user": user['id'],
@@ -423,7 +441,8 @@ async def process_gamer_id(message: types.Message, state: FSMContext):
         else:
             await message.answer(f"Failed to place order for product ID {product_id}. Please try again later.")
     else:
-        await bot.send_message(tg_user_id, "Balansingizda pul yetarli emas. Balansingizni to'ldirib qayradan urinib ko'ring")
+        await bot.send_message(tg_user_id, "Balansingizda pul yetarli emas. Balansingizni to'ldirib qayradan urinib ko'rin")
+    return
 
 @dp.callback_query_handler(lambda query: query.data.startswith('confirm_order_'))
 async def confirm_order(callback_query: types.CallbackQuery):
@@ -433,8 +452,9 @@ async def confirm_order(callback_query: types.CallbackQuery):
     if response.status_code == 200:
         user = response.json()['user']
         order = response.json()['order']
+        tg_user_id = response.json()['tg_user_id']
         order_data = f"{user['name']}, sizning {order['product']} buyurtmangiz bajarildi."
-        await bot.send_message(user['user_id'], order_data)
+        await bot.send_message(tg_user_id, order_data)
     await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
     await bot.answer_callback_query(callback_query.id, text=f"Order {order_id} confirmed!")
 
@@ -461,8 +481,10 @@ async def process_card_selection(query: types.CallbackQuery, state: FSMContext):
     response = requests.get(url)
     if response.status_code == 200:
         card = response.json()
-        await query.message.answer(f"Selected card: {card['number']}")
-        await query.message.answer("Please enter the price:")
+        await query.message.answer(f"Selected card: ```{card['number']}```"
+                                   f"Make the payment and \n"
+                                   f"Please enter the price:",
+                                   parse_mode='Markdown')
         await PaymentForm.amount.set()
     else:
         logging.info("Card not found")
@@ -483,12 +505,14 @@ async def process_screenshot(message: types.Message, state: FSMContext):
         screenshot = data['screenshot']
     logging.info(message)
     tg_user_id = message.from_user.id
+    user = requests.get(f'{BASE_URL}/user/get_user/{tg_user_id}').json()['id']
     payload = {
+        'user': user,
         'card_id': card_id,
         'price': amount,
         'cheque_pic': screenshot
     }
-    payment_url = f'{BASE_URL}/payment/create/{tg_user_id}'
+    payment_url = f'{BASE_URL}/payment/create/'
     response = requests.post(payment_url, json=payload)
     payment = response.json()
     if response.status_code == 201:
@@ -515,16 +539,18 @@ async def confirm_payment(callback_query: types.CallbackQuery):
     response = requests.get(url)
     if response.status_code == 200:
         user = response.json()['user']
+        tg_user_id = response.json()['tg_user_id']
         payment = response.json()['payment']
         payment_data = f"{user['name']}, sizning {payment['price']} so'mlik to'lovingiz qabul qilindi va sizning joriy balansingiz\n{user['balance']} so'm"
-        await bot.send_message(user['user_id'], payment_data)
+        await bot.send_message(tg_user_id, payment_data)
     await bot.answer_callback_query(callback_query.id, text=f"Order {payment['id']} confirmed!")
 
 
+################## ORDER ###########################
 @dp.message_handler(lambda message: message.text == "Orders history")
 async def orders_history_function(message: types.Message):
     user_id = message.from_user.id
-    url = f'{BASE_URL}/order/history/{user_id}'
+    url = f'{BASE_URL}/order/list/?owner_by={user_id}'
     response = requests.get(url)
     if response.status_code == 200:
         orders = response.json()
@@ -532,27 +558,139 @@ async def orders_history_function(message: types.Message):
             for order in orders:
                 order_info = f"Date: {order['datetime']}, Price: {order['product']}, Quantity: {order['product']}"
                 await bot.send_message(user_id, order_info)
-            else:
-                await bot.send_message(user_id, "No order history found.")
         else:
-            await bot.send_message(user_id, "Failed to fetch payment history.")
+            await bot.send_message(user_id, "No order history found.")
+    else:
+        await bot.send_message(user_id, "Failed to fetch order history.")
 
+
+# @dp.message_handler(lambda message: message.text == "Payments history")
+# async def payments_history_function(message: types.Message):
+#     user_id = message.from_user.id
+#     url = f'{BASE_URL}/payment/list/?owner_by={user_id}'
+#     response = requests.get(url)
+#     if response.status_code == 200:
+#         payments = response.json()
+#         if payments:
+#             grouped_payments = {}
+#             for payment in payments:
+#                 payment_datetime = datetime.strptime(payment['datetime'], "%Y-%m-%dT%H:%M:%S.%f%z")
+#                 date_str = payment_datetime.strftime("%Y-%m-%d")
+#                 time_str = payment_datetime.strftime("%H:%M")
+#                 if payment["is_accepted"] is False and payment["is_rejected"] is False:
+#                     status = "⏳"
+#                 elif payment["is_accepted"] is True and payment["is_rejected"] is False:
+#                     status = "✅"
+#                 elif payment["is_accepted"] is False and payment["is_rejected"] is True:
+#                     status = "❌"
+#                 payment_info = f"{time_str} - $: {payment['price']}"
+#                 if date_str not in grouped_payments:
+#                     grouped_payments[date_str] = []
+#                 payment_info += " | " + status
+#                 grouped_payments[date_str].append(payment_info)
+#
+#             for date, payments_info in grouped_payments.items():
+#                 payments_message = f"{date}:\n"
+#                 payments_message += "\n".join(payments_info)
+#                 await bot.send_message(user_id, payments_message)
+#         else:
+#             await bot.send_message(user_id, "No payment history found.")
+#     else:
+#         await bot.send_message(user_id, "Failed to fetch payment history.")
 
 @dp.message_handler(lambda message: message.text == "Payments history")
-async def payments_history_function(message: types.Message):
+async def payments_history_function(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
+    url = f'{BASE_URL}/payment/list/?owner_by={user_id}'
+    response = requests.get(url)
+    if response.status_code == 200:
+        payments = response.json()
+        async with state.proxy() as data:
+            data['json'] = payments
+            data['index'] = 0
+        if payments:
+            text =""
+            numb = 0
+            buttons = []
+            for i in range(data['index'], len(payments)%10):
+                payment = data['json'][i]
+                payment_datetime = datetime.strptime(payment['datetime'], "%Y-%m-%dT%H:%M:%S.%f%z")
+                date_str = payment_datetime.strftime("%Y-%m-%d")
+                time_str = payment_datetime.strftime("%H:%M")
+                text += f"{numb+1}. {date_str}  {time_str} - {get_payment_status(payment)} {payment['price']}\n"
+                buttons.append(InlineKeyboardButton(text=str(numb+1), callback_data=f"callPaymentInfo_{payment['id']}"))
+                numb += 1
+            keyboard = InlineKeyboardMarkup(row_width=5)
+            keyboard.add(*buttons)
+            mbuttons = []
+            mbuttons.append(InlineKeyboardButton(text="⬅️", callback_data="pagination_0"))
+            mbuttons.append(InlineKeyboardButton(text="❌", callback_data="pagination_1"))
+            mbuttons.append(InlineKeyboardButton(text="➡️", callback_data="pagination_2"))
+            keyboard.add(*mbuttons)
+            await message.answer(f"{data['index']+1}-{numb} to'lovlar {len(payments)} dan\n\n{text}", reply_markup=keyboard)
+        else:
+            await bot.send_message(user_id, "No payment history found.")
+    else:
+        await bot.send_message(user_id, "Failed to fetch payment history.")
+
+
+
+def get_payment_status(payment):
+    if payment["is_accepted"]:
+        return "✅"
+    elif payment["is_rejected"]:
+        return "❌"
+    else:
+        return "⏳"
+@dp.callback_query_handler(lambda query: query.data.startswith('pagination_'))
+async def handle_pagination_callback(query: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    index = data.get('index', 0)
+    total_payments = len(data.get('json', []))
+
+    if query.data == 'pagination_0':
+        index = max(index - 10, 0)
+    elif query.data == 'pagination_1':
+        await bot.delete_message(query.message.chat.id, query.message.message_id)
+    elif query.data == 'pagination_2':
+        index = min(index + 10, total_payments - 1)
+    async with state.proxy() as data:
+        data['index'] = index
+
+    await query.answer()
+    await payments_history_function(query.message, state)
+
+############################################################
+
+@dp.callback_query_handler(lambda query: query.data.startswith('payment_page_'))
+async def handle_payment_pagination(query: types.CallbackQuery):
+    user_id = query.from_user.id
+    page_number = int(query.data.split('_')[-1])
+
     url = f'{BASE_URL}/payment/history/{user_id}'
     response = requests.get(url)
     if response.status_code == 200:
         payments = response.json()
         if payments:
-            for payment in payments:
-                payment_info = f"Date: {payment['datetime']}, Amount: {payment['price']}"
-                await bot.send_message(user_id, payment_info)
+            chunked_payments = [payments[i:i + 10] for i in range(0, len(payments), 10)]
+            total_pages = len(chunked_payments)
+            if 1 <= page_number <= total_pages:
+                payment_info = ""
+                for payment in chunked_payments[page_number - 1]:
+                    payment_info += f"Date: {payment['datetime']}, Amount: {payment['price']}\n"
+                keyboard = types.InlineKeyboardMarkup(row_width=2)
+                if total_pages > 1:
+                    if page_number > 1:
+                        keyboard.add(types.InlineKeyboardButton("Previous", callback_data=f"payment_page_{page_number - 1}"))
+                    if page_number < total_pages:
+                        keyboard.add(types.InlineKeyboardButton("Next", callback_data=f"payment_page_{page_number + 1}"))
+                await query.message.edit_text(payment_info, reply_markup=keyboard)
+            else:
+                await query.answer("Invalid page number.", show_alert=True)
         else:
-            await bot.send_message(user_id, "No payment history found.")
+            await query.answer("No payment history found.")
     else:
-        await bot.send_message(user_id, "Failed to fetch payment history.")
+        await query.answer("Failed to fetch payment history.")
 
 
 #### PROFILE
@@ -571,6 +709,7 @@ async def profile_function(message: types.Message):
         keyboard = types.InlineKeyboardMarkup(row_width=1)
         keyboard.add(types.InlineKeyboardButton('Edit Profile', callback_data='profile_edit'))
         keyboard.add(types.InlineKeyboardButton('Settings', callback_data='settings'))
+        keyboard.add(types.InlineKeyboardButton('Logout', callback_data='logout'))
         await message.answer(message_text, reply_markup=keyboard)
     else:
         await message.answer("Error with server!")
@@ -579,6 +718,32 @@ async def profile_function(message: types.Message):
 async def edit_profile(callback_query: types.CallbackQuery):
     await callback_query.answer("You selected to edit your profile.")
     # Here you can implement the logic to handle the editing of the profile
+@dp.callback_query_handler(lambda query: query.data == 'logout')
+async def edit_profile(callback_query: types.CallbackQuery):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    keyboad = types.InlineKeyboardMarkup(row_width=1)
+    keyboad.add(types.InlineKeyboardButton('Yes', callback_data='logoutConfirm_yes'))
+    keyboad.add(types.InlineKeyboardButton('No', callback_data='LogoutConfirm_no'))
+    await callback_query.message.answer("Are you sure to logout?", reply_markup=keyboad)
+
+@dp.callback_query_handler(lambda query: query.data.startswith('logoutConfirm_'))
+async def logout_confirm(callback_query: types.CallbackQuery):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    answer = callback_query.data.split('_')[-1]
+    user_id = callback_query.from_user.id
+    url = f'{BASE_URL}/user/deauthenticate/{user_id}'
+    if answer == 'yes':
+        response = requests.get(url)
+        if response.status_code == 200:
+            is_true = response.json()
+            if not is_true:
+                await callback_query.message.answer("Logged out successfully.")
+                await choice_Sign(callback_query.from_user.id)
+                return
+    else:
+        await callback_query.message.answer("Profildan chiqilmadi.")
+
+
 
 
 #### SETTINGS ####
@@ -599,58 +764,159 @@ async def settings_function(message: types.Message):
 async def admin_menu(message: types.Message):
     # Create the admin menu keyboard
     keyboard = types.ReplyKeyboardMarkup(row_width=2)
-    keyboard.add(types.KeyboardButton("Orders"))
-    keyboard.add(types.KeyboardButton("Payments"))
-    keyboard.add(types.KeyboardButton("Main Configuration"))
-    # keyboard.add(types.KeyboardButton("Orders"))
-    # keyboard.add(types.KeyboardButton("Other Bot Settings"))
+    keyboard.add(types.KeyboardButton("Buyurtmalar"))
+    keyboard.add(types.KeyboardButton("To'lovlar"))
+    keyboard.add(types.KeyboardButton("Bot sozlamalari"))
 
     await message.answer("Admin Menu:", reply_markup=keyboard)
 
-@dp.message_handler(text="Orders", user_id=ADMINS)
+@dp.message_handler(text="Buyurtmalar", user_id=ADMINS)
 async def OrdersAdmin(message: types.Message):
     keyboard = types.InlineKeyboardMarkup()
-    keyboard.add(types.InlineKeyboardButton("Waiting orders", callback_data="sortOrder_0"))
-    keyboard.add(types.InlineKeyboardButton("Accepted orders", callback_data="sortOrder_1"))
-    keyboard.add(types.InlineKeyboardButton("Rejected orders", callback_data="sortOrder_2"))
-    await message.answer("Choose sorting:", reply_markup=keyboard)
+    keyboard.add(types.InlineKeyboardButton("Bajarilmagan buyurtmalar", callback_data="sortOrder_0"))
+    keyboard.add(types.InlineKeyboardButton("Qabul qilingan buyurtmalar", callback_data="sortOrder_1"))
+    keyboard.add(types.InlineKeyboardButton("Rad etilgan buyurtmalar", callback_data="sortOrder_2"))
+    await message.answer("Buyurtma turini tanlang:", reply_markup=keyboard)
 @dp.callback_query_handler(lambda query: query.data.startswith('sortOrder_'), user_id=ADMINS)
 async def handle_sort_order(callback_query: types.CallbackQuery):
     await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
     sorting_option = int(callback_query.data.split('_')[-1])
-    url = f"{BASE_URL}/order/"
+    url = f"{BASE_URL}/order/list/"
     if sorting_option == 0:
-        response = requests.get(url+"requests/")
+        response = requests.get(url+"?filter_by=requests")
         if response.status_code == 200:
             orders = response.json()
             apps = requests.get(f'{BASE_URL}/app/').json()
             products = requests.get(f'{BASE_URL}/product').json()
             for order in orders:
-                product = products[order['product']]
+                product = next((p for p in products if p['id'] == order['product']), None)
+                app = next((p for p in apps if p['id'] == product["app"]), None)
                 order_text= (
-                    f"Order from {callback_query.from_user.username if callback_query.from_user.username else callback_query.from_user.first_name}\n\n"
-                    f"App: {apps[product['app']]['name']}\n"
-                    f"For gamer: {order['gamer_id']}"
-                    f"Quantity: {product['quantity']} {product['name']}\n"
-                    f"Price: {product['price']}")
+                    f"Buyurtma egasi: {callback_query.from_user.username if callback_query.from_user.username else callback_query.from_user.first_name}\n\n"
+                    f"Ilova: {app['name']}\n"
+                    f"O'yinchi ID: {order['gamer_id']}\n"
+                    f"Miqdori: {product['quantity']} {product['name']}\n"
+                    f"Narxi: {product['price']}")
                 keyboard = InlineKeyboardMarkup(row_width=2)
-                keyboard.add(InlineKeyboardButton("Done", callback_data=f"confirm_order_{order['id']}"))
-                keyboard.add(InlineKeyboardButton("Later", callback_data="button_data"))
+                keyboard.add(InlineKeyboardButton("Bajarildi", callback_data=f"confirm_order_{order['id']}"))
+                keyboard.add(InlineKeyboardButton("Keyinroq", callback_data="button_data"))
+                await bot.send_message(ADMINS, order_text, reply_markup=keyboard)
+    elif sorting_option == 1:
+        response = requests.get(url + "?filter_by=done")
+        if response.status_code == 200:
+            orders = response.json()
+            apps = requests.get(f'{BASE_URL}/app/').json()
+            products = requests.get(f'{BASE_URL}/product').json()
+            for order in orders:
+                product = next((p for p in products if p['id'] == order['product']), None)
+                app = next((p for p in apps if p['id'] == product["app"]), None)
+                order_text= (
+                    f"Buyurtma egasi: {callback_query.from_user.username if callback_query.from_user.username else callback_query.from_user.first_name}\n\n"
+                    f"Ilova: {app['name']}\n"
+                    f"O'yinchi ID: {order['gamer_id']}\n"
+                    f"Miqdori: {product['quantity']} {product['name']}\n"
+                    f"Narxi: {product['price']}")
+                keyboard = InlineKeyboardMarkup(row_width=2)
+                keyboard.add(InlineKeyboardButton("Bajarildi", callback_data=f"confirm_order_{order['id']}"))
+                keyboard.add(InlineKeyboardButton("Keyinroq", callback_data="button_data"))
+                await bot.send_message(ADMINS, order_text, reply_markup=keyboard)
+    elif sorting_option == 2:
+        response = requests.get(url + "?filter_by=rejected")
+        if response.status_code == 200:
+            orders = response.json()
+            apps = requests.get(f'{BASE_URL}/app/').json()
+            products = requests.get(f'{BASE_URL}/product').json()
+            for order in orders:
+                product = next((p for p in products if p['id'] == order['product']), None)
+                app = next((p for p in apps if p['id'] == product["app"]), None)
+                order_text= (
+                    f"Buyurtma egasi: {callback_query.from_user.username if callback_query.from_user.username else callback_query.from_user.first_name}\n\n"
+                    f"Ilova: {app['name']}\n"
+                    f"O'yinchi ID: {order['gamer_id']}\n"
+                    f"Miqdori: {product['quantity']} {product['name']}\n"
+                    f"Narxi: {product['price']}")
+                keyboard = InlineKeyboardMarkup(row_width=2)
+                keyboard.add(InlineKeyboardButton("Bajarildi", callback_data=f"confirm_order_{order['id']}"))
+                keyboard.add(InlineKeyboardButton("Keyinroq", callback_data="button_data"))
                 await bot.send_message(ADMINS, order_text, reply_markup=keyboard)
 
     await callback_query.answer(f"Sorting option selected: {sorting_option}")
 
+##### TO'LOVLAR
 
-@dp.message_handler(text="Payments", user_id=ADMINS)
+@dp.message_handler(text="To'lovlar", user_id=ADMINS)
 async def PaymentsAdmin(message: types.Message):
-    await message.answer("Product Settings are not implemented yet.")
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.add(types.InlineKeyboardButton("Tekshirilmagan to'lovlar", callback_data="sortPayment_0"))
+    keyboard.add(types.InlineKeyboardButton("Tasdiqlangan to'lovlar", callback_data="sortPayment_1"))
+    keyboard.add(types.InlineKeyboardButton("Rad etilgan to'lovlar", callback_data="sortPayment_2"))
+    await message.answer("To'lov turini tanlang:", reply_markup=keyboard)
 
-@dp.message_handler(text="Main Configuration", user_id=ADMINS)
+@dp.callback_query_handler(lambda query: query.data.startswith('sortPayment_'), user_id=ADMINS)
+async def handle_payment_sort_order(callback_query: types.CallbackQuery):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    sorting_option = int(callback_query.data.split('_')[-1])
+    url = f"{BASE_URL}/payment/list/"
+    if sorting_option == 0:
+        response = requests.get(url + "?filter_by=requests/")
+        if response.status_code == 200:
+            payments = response.json()
+            if payments:
+                grouped_payments = {}
+                for payment in payments:
+                    payment_datetime = datetime.strptime(payment['datetime'], "%Y-%m-%dT%H:%M:%S.%f%z")
+                    date_str = payment_datetime.strftime("%Y-%m-%d")
+                    time_str = payment_datetime.strftime("%H:%M")
+                    if payment["is_accepted"] is False and payment["is_rejected"] is False:
+                        status = "⏳"
+                    elif payment["is_accepted"] is True and payment["is_rejected"] is False:
+                        status = "✅"
+                    elif payment["is_accepted"] is False and payment["is_rejected"] is True:
+                        status = "❌"
+                    payment_info = f"{time_str} - $: {payment['price']}"
+                    if date_str not in grouped_payments:
+                        grouped_payments[date_str] = []
+                    payment_info += " | " + status
+                    grouped_payments[date_str].append(payment_info)
+
+                for date, payments_info in grouped_payments.items():
+                    payments_message = f"{date}:\n"
+                    payments_message += "\n".join(payments_info)
+                    await callback_query.message.answer(payments_message)
+            else:
+                await callback_query.message.answer("No payment history found.")
+    elif sorting_option == 1:
+        response = requests.get(url + "?filter_by=done/")
+        if response.status_code == 200:
+            payments = response.json()
+            if payments:
+                grouped_payments = {}
+                for payment in payments:
+                    payment_datetime = datetime.strptime(payment['datetime'], "%Y-%m-%dT%H:%M:%S.%f%z")
+                    date_str = payment_datetime.strftime("%Y-%m-%d")
+                    time_str = payment_datetime.strftime("%H:%M")
+                    payment_info = f"{time_str} - $: {payment['price']}"
+                    if date_str not in grouped_payments:
+                        grouped_payments[date_str] = []
+                    grouped_payments[date_str].append(payment_info)
+
+                for date, payments_info in grouped_payments.items():
+                    payments_message = f"{date}:\n"
+                    payments_message += "\n".join(payments_info)
+                    await callback_query.message.answer(payments_message)
+            else:
+                await callback_query.message.answer("No payment history found.")
+
+    await callback_query.answer(f"Sorting option selected: {sorting_option}")
+
+
+
+@dp.message_handler(text="Bot sozlamalari", user_id=ADMINS)
 async def Congigurations(message: types.Message):
     keyboard = types.InlineKeyboardMarkup(row_width=2)
-    keyboard.add(types.InlineKeyboardButton("Edit Apps", callback_data="appSettings"))
-    keyboard.add(types.InlineKeyboardButton("Edit Products", callback_data="productSettings"))
-    keyboard.add(types.InlineKeyboardButton("Edit Cards", callback_data="card_settings"))
+    keyboard.add(types.InlineKeyboardButton("Ilovalar", callback_data="appSettings"))
+    keyboard.add(types.InlineKeyboardButton("Mahsulotlar", callback_data="productSettings"))
+    keyboard.add(types.InlineKeyboardButton("Kartalar", callback_data="card_settings"))
 
     await message.answer("Choose option:", reply_markup=keyboard)
 @dp.callback_query_handler(lambda query: query.data == 'appSettings', user_id=ADMINS)
@@ -661,56 +927,26 @@ async def appSettings(query: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     for app in apps:
         keyboard.add(types.InlineKeyboardButton(app["name"], callback_data=f"edit_app_{app['id']}"))
-    keyboard.add(types.InlineKeyboardButton("Add new app", callback_data="add_app"))
-    await query.message.answer("Choose app or add app:", reply_markup=keyboard)
+    keyboard.add(types.InlineKeyboardButton("Yangi ilova", callback_data="add_app"))
+    await query.message.answer("Ilovani tanlang yoki yarating:", reply_markup=keyboard)
     await query.answer()
     await bot.delete_message(chat_id=query.message.chat.id, message_id=query.message.message_id)
-@dp.callback_query_handler(lambda query: query.data.startswith('edit_app_'), user_id=ADMINS)
-async def edit_app(query: types.CallbackQuery):
-    app_id = query.data.split('_')[-1]
-    url = f'{BASE_URL}/app/{app_id}'
-    response = requests.get(url)
-    app = response.json()
-    keyboard = types.InlineKeyboardMarkup(row_width=1)
-    keyboard.add(types.InlineKeyboardButton("Edit name", callback_data=f"change_app_1_{app_id}"))
-    keyboard.add(types.InlineKeyboardButton("Edit photo", callback_data=f"change_app_2_{app_id}"))
-    keyboard.add(types.InlineKeyboardButton("Delete app", callback_data=f"change_app_3_{app_id}"))
-    await bot.send_photo(query.from_user.id, app["app_pic"], caption=app['name'], reply_markup=keyboard)
-    await query.answer(f"You selected to edit app with ID {app_id}.")
 
-@dp.callback_query_handler(lambda query: query.data.startswith('change_app_'), user_id=ADMINS)
-async def change_app(query: types.CallbackQuery):
-    action_code, app_id = query.data.split('_')[-2:]
-    url = f'{BASE_URL}/app/{app_id}'
-
-    if action_code == '1':
-        await query.message.answer('You selected to edit the name of the app.')
-        await editAppName(app_id, query.from_user.id, FSMContext)
-    elif action_code == '2':
-        await query.answer("You selected to edit the photo of the app.")
-        # Perform actions to change the photo of the app
-    elif action_code == '3':
-        response = requests.delete(url)
-        if response.status_code == 204:
-            await query.answer("App deleted successfully.")
-        else:
-            await query.answer("Failed to delete app.")
-    else:
-        await query.answer("Invalid action.")
-
+############## ADD NEW APP #########################
 @dp.callback_query_handler(lambda query: query.data == 'add_app', user_id=ADMINS)
 async def add_app(query: types.CallbackQuery):
-    await query.message.answer("Please enter the name of the new app.")
+    await bot.delete_message(chat_id=query.message.chat.id, message_id=query.message.message_id)
+    await query.message.answer("Yangi ilova uchun nom kiriting:.")
     await AddAppStates.name.set()
-
 @dp.message_handler(state=AddAppStates.name, user_id=ADMINS)
 async def add_app_name(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['name'] = message.text
-    await message.answer("Please send the photo of the new app.")
+    await message.answer("Ilova uchun rasm yuboring 🖼:")
     await AddAppStates.photo.set()
 @dp.message_handler(content_types=types.ContentType.PHOTO, state=AddAppStates.photo, user_id=ADMINS)
 async def add_app_photo(message: types.Message, state: FSMContext):
+    await bot.delete_message(message.chat.id, message.message_id)
     async with state.proxy() as data:
         data['photo'] = message.photo[-1].file_id
     new_app_data = {
@@ -721,51 +957,98 @@ async def add_app_photo(message: types.Message, state: FSMContext):
     response = requests.post(url, json=new_app_data)
     app = response.json()
     if response.status_code == 201:
-        await message.answer_photo(app['app_pic'], caption="New app: app['name']")
+        await message.answer_photo(app['app_pic'], caption=f"Yangi ilova: {app['name']}")
     else:
-        await message.answer("Failed to add new app.")
+        await message.answer("Ilova yaratishda xatolik.")
     await state.finish()
 
-@dp.callback_query_handler(state=SingleDataForm.id, user_id=ADMINS)
-async def editAppName(appID: int, user_id, state: FSMContext ):
+
+################# EDIT APP #######################
+@dp.callback_query_handler(lambda query: query.data.startswith('edit_app_'), user_id=ADMINS)
+async def edit_app(query: types.CallbackQuery):
+    await bot.delete_message(query.message.chat.id, query.message.message_id)
+    app_id = query.data.split('_')[-1]
+    url = f'{BASE_URL}/app/{app_id}'
+    response = requests.get(url)
+    app = response.json()
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(types.InlineKeyboardButton("Mahsulot", callback_data=f"appProduct_{app_id}"))
+    keyboard.add(types.InlineKeyboardButton("Nomni tahrirlash 📝", callback_data=f"editAPPname_{app_id}"))
+    keyboard.add(types.InlineKeyboardButton("Rasmni tahrirlash 🖼", callback_data=f"editAPPphoto_{app_id}"))
+    keyboard.add(types.InlineKeyboardButton("Ilovani o'chirish ❌", callback_data=f"deleteAPP_{app_id}"))
+    photo = app["app_pic"]
+    await bot.send_photo(query.from_user.id, photo=photo, caption=app['name'], reply_markup=keyboard)
+    await query.answer(f"You selected to edit app with ID {app_id}.")
+
+######## DELETE APP
+@dp.callback_query_handler(lambda query: query.data.startswith('deleteAPP_'), user_id=ADMINS)
+async def deleteAPPyesno(callback_query: types.CallbackQuery):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    app_id = callback_query.data.split('_')[-1]
+    keyboad = types.InlineKeyboardMarkup(row_width=1)
+    keyboad.add(types.InlineKeyboardButton('Yes', callback_data=f'deleteAPPConfirm_{1}_{app_id}'))
+    keyboad.add(types.InlineKeyboardButton('No', callback_data=f'deleteAPPConfirm_{0}_{app_id}'))
+    await callback_query.message.answer("Are you sure to delete app?", reply_markup=keyboad)
+@dp.callback_query_handler(lambda query: query.data.startswith('deleteAPPConfirm_'))
+async def deleteAPPconfirm(callback_query: types.CallbackQuery):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    confirmation, app_id = callback_query.data.split('_')[-2:]
+    if confirmation == "1":
+        url = f'{BASE_URL}/app/{app_id}'
+        response = requests.delete(url)
+        if response.status_code == 204:
+            await callback_query.message.answer("App deleted successfully.")
+        else:
+            await callback_query.message.answer("Failed to delete app.")
+    else:
+        await callback_query.message.answer("App deletion cancelled.")
+
+##### EDIT NAME
+@dp.callback_query_handler(lambda query: query.data.startswith('editAPPname_'), user_id=ADMINS)
+async def editAPPname(callback_query: types.CallbackQuery, state: FSMContext):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    app_id = callback_query.data.split('_')[-1]
     async with state.proxy() as data:
-        data['id'] = appID
-    await bot.send_message(user_id, "App uchun yangi nom yuboring: ")
-    await SingleDataForm.text.set()
-@dp.message_handler(state=SingleDataForm.text, user_id=ADMINS)
-async def edit_app_name(message: types.Message, state: FSMContext):
+        data['id'] = app_id
+    await callback_query.message.answer("Please enter the new name for the app.")
+    await SingleDataAppForm.text.set()
+
+@dp.message_handler(state=SingleDataAppForm.text, user_id=ADMINS)
+async def get_app_name(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['text'] = message.text
-    url = f"{BASE_URL}/app/{data['id']}"
-    response = requests.put(url, json={"name": data["name"]})
+    url = f"{BASE_URL}/app/{data['id']}/"
+    response = requests.patch(url, json={"name": data["text"]})
+    await state.finish()
     if response.status_code == 200:
         await message.answer("Name successfully updated.")
-        return
     else:
-        await message.answer("Error updating")
-        return
+        await message.answer("Error updating name.")
 
-# async def edit_app_name(query: types.CallbackQuery, app_id: str):
-#     new_name = "New App Name"
-#
-#     data = {"name": new_name}
-#     response = requests.patch(url, json=data)
-#     if response.status_code == 200:
-#         await query.answer("App name updated successfully.")
-#     else:
-#         await query.answer("Failed to update app name.")
-#
-# async def edit_app_photo(query: types.CallbackQuery, app_id: str):
-#     new_photo = "new_photo.jpg"
-#     url = f'{BASE_URL}/app/{app_id}'
-#     data = {"app_pic": new_photo}
-#     response = requests.patch(url, json=data)
-#     if response.status_code == 200:
-#         await query.answer("App photo updated successfully.")
-#     else:
-#         await query.answer("Failed to update app photo.")
+##### EDIT PHOTO
+@dp.callback_query_handler(lambda query: query.data.startswith('editAPPphoto_'), user_id=ADMINS)
+async def editAPPphoto(callback_query: types.CallbackQuery, state: FSMContext):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    app_id = callback_query.data.split('_')[-1]
+    async with state.proxy() as data:
+        data['id'] = app_id
+    await callback_query.message.answer("Please send the new photo for the app.")
+    await SingleDataAppForm.text.set()
+@dp.message_handler(state=SingleDataAppForm.text, content_types=types.ContentType.PHOTO, user_id=ADMINS)
+async def get_app_photo(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['text'] = message.photo[-1].file_id
+    url = f"{BASE_URL}/app/{data['id']}/"
+    response = requests.patch(url, json={"app_pic": data["text"]})
+    await state.finish()
+    if response.status_code == 200:
+        await message.answer("Photo successfully updated.")
+    else:
+        await message.answer("Error updating photo.")
 
 
+
+############ EDIT PRODUCT ##################
 @dp.callback_query_handler(lambda query: query.data == 'productSettings', user_id=ADMINS)
 async def edit_products(query: types.CallbackQuery):
     url = f'{BASE_URL}/app/'
@@ -778,8 +1061,8 @@ async def edit_products(query: types.CallbackQuery):
     await query.answer()
     await bot.delete_message(chat_id=query.message.chat.id, message_id=query.message.message_id)
 @dp.callback_query_handler(lambda query: query.data.startswith('appProduct_'), user_id=ADMINS)
-async def select_app_product(query: types.CallbackQuery):
-    app_id = query.data.split('_')[-1]
+async def select_app_product(callback_query: types.CallbackQuery):
+    app_id = callback_query.data.split('_')[-1]
     url1 = f'{BASE_URL}/products/{app_id}'
     response = requests.get(url1)
     products = response.json()
@@ -792,58 +1075,17 @@ async def select_app_product(query: types.CallbackQuery):
     url2 = f'{BASE_URL}/app/{app_id}'
     response = requests.get(url2)
     app_data = response.json()
-    await bot.send_photo(query.message.chat.id,
-                         app_data['app_pic'],
+    await bot.send_photo(callback_query.from_user.id,
+                         photo=app_data['app_pic'],
                          caption=app_data['name'],
                          reply_markup=keyboard)
-    await query.answer(f"You selected app with ID {app_id} for products.")
+    await callback_query.answer(f"You selected app with ID {app_id} for products.")
 
-@dp.callback_query_handler(lambda query: query.data.startswith('editProduct_'), user_id=ADMINS)
-async def EditSelectedProduct(query: types.CallbackQuery):
-    product_id = query.data.split('_')[-1]
-    url = f'{BASE_URL}/products/{product_id}'
-    response = requests.get(url)
-    product = response.json()
-    keyboard = types.InlineKeyboardMarkup(row_width=1)
-    keyboard.add(types.InlineKeyboardButton("Edit name", callback_data=f"change_app_1_{product_id}"))
-    keyboard.add(types.InlineKeyboardButton("Edit quantity", callback_data=f"change_app_2_{product_id}"))
-    keyboard.add(types.InlineKeyboardButton("Edit price", callback_data=f"change_app_3_{product_id}"))
-    keyboard.add(types.InlineKeyboardButton("Delete product", callback_data=f"change_app_4_{product_id}"))
-    text = (f"Selected product: {product['name']} {product['quantity']}"
-            f"Price: {product['price']}")
-    await query.message.answer(text, reply_markup=keyboard)
-    await query.answer(f"You selected to edit app with ID {product_id}.")
 
-@dp.callback_query_handler(lambda query: query.data.startswith('change_app_'), user_id=ADMINS)
-async def change_product(query: types.CallbackQuery):
-    action_code, product_id = query.data.split('_')[-2:]
-    url = f'{BASE_URL}/product/{product_id}'
-
-    if action_code == '1':
-        await query.message.answer('You selected to edit the name of the product.')
-        await SingleDataForm.text.set()
-    elif action_code == '2':
-        await query.answer("You selected to edit the quantity of the product.")
-    elif action_code == '3':
-        await query.answer("You selected to edit the price of the product.")
-        # Perform actions to change the price of the product
-    elif action_code == '4':
-        response = requests.delete(url)
-        if response.status_code == 204:
-            await query.answer("Product deleted successfully.")
-        else:
-            await query.answer("Failed to delete product.")
-    else:
-        await query.answer("Invalid action.")
-
-@dp.callback_query_handler(lambda query: query.data.startswith('change_app_1'), user_id=ADMINS)
-async def edit_product_name(query: types.CallbackQuery):
-    product_id = query.data.split('_')[-1]
-    await query.message.answer('You selected to edit the name of the product.')
-    # await editProductName(product_id, query.from_user.id)
-
+############# NEW PRODUCT ######################
 @dp.callback_query_handler(lambda query: query.data.startswith('addProduct_'), user_id=ADMINS)
 async def add_product(query: types.CallbackQuery, state: FSMContext):
+    await query.answer()
     await AddProductStates.app.set()
     app_id = query.data.split('_')[-1]
     async with state.proxy() as data:
@@ -884,6 +1126,80 @@ async def add_product_price(message: types.Message, state: FSMContext):
         await message.answer("Failed to add new product.")
     await state.finish()
 
+
+############### EDIT PRODUCT ####################
+@dp.callback_query_handler(lambda query: query.data.startswith('editProduct_'), user_id=ADMINS)
+async def EditSelectedProduct(query: types.CallbackQuery):
+    product_id = query.data.split('_')[-1]
+    url = f'{BASE_URL}/product/{product_id}'
+    response = requests.get(url)
+    product = response.json()
+    print(product)
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(types.InlineKeyboardButton("Edit name", callback_data=f"changeProduct_1_{product_id}"))
+    keyboard.add(types.InlineKeyboardButton("Edit quantity", callback_data=f"changeProduct_2_{product_id}"))
+    keyboard.add(types.InlineKeyboardButton("Edit price", callback_data=f"changeProduct_3_{product_id}"))
+    keyboard.add(types.InlineKeyboardButton("Delete product", callback_data=f"deleteProduct_{product_id}"))
+    text = (f"Selected product: {product['name']} {product['quantity']}"
+            f"Price: {product['price']}")
+    await query.message.answer(text, reply_markup=keyboard)
+    await query.answer(f"You selected to edit product with ID {product_id}.")
+
+######## DELETE APP
+@dp.callback_query_handler(lambda query: query.data.startswith('deleteProduct_'), user_id=ADMINS)
+async def deleteAPPyesno(callback_query: types.CallbackQuery):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    app_id = callback_query.data.split('_')[-1]
+    keyboad = types.InlineKeyboardMarkup(row_width=1)
+    keyboad.add(types.InlineKeyboardButton('Yes', callback_data=f'deleteProductConfirm_{1}_{app_id}'))
+    keyboad.add(types.InlineKeyboardButton('No', callback_data=f'deleteProductConfirm_{0}_{app_id}'))
+    await callback_query.message.answer("Are you sure to delete product?", reply_markup=keyboad)
+@dp.callback_query_handler(lambda query: query.data.startswith('deleteProductConfirm_'))
+async def deleteAPPconfirm(callback_query: types.CallbackQuery):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    confirmation, app_id = callback_query.data.split('_')[-2:]
+    if confirmation == "1":
+        url = f'{BASE_URL}/product/{app_id}'
+        response = requests.delete(url)
+        if response.status_code == 204:
+            await callback_query.message.answer("Product deleted successfully.")
+        else:
+            await callback_query.message.answer("Failed to delete product.")
+    else:
+        await callback_query.message.answer("Product deletion cancelled.")
+
+##### EDIT PRODUCT DATA
+@dp.callback_query_handler(lambda query: query.data.startswith('changeProduct_'), user_id=ADMINS)
+async def editProduct(callback_query: types.CallbackQuery, state: FSMContext):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    action_id, product_id = callback_query.data.split('_')[-2:]
+    async with state.proxy() as data:
+        data['id'] = product_id
+        if action_id == '1':
+            data['type'] = "name"
+            await callback_query.message.answer("Please enter the new name for the product.")
+        elif action_id == '2':
+            data['type'] = "quantity"
+            await callback_query.message.answer("Please enter the new quantity for the product.")
+        elif action_id == '3':
+            data['type'] = "price"
+            await callback_query.message.answer("Please enter the new price for the product.")
+    await SingleDataProductForm.text.set()
+
+@dp.message_handler(state=SingleDataProductForm.text, user_id=ADMINS)
+async def get_product_name(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['text'] = message.text
+        column = data['type']
+    url = f"{BASE_URL}/product/{data['id']}/"
+    response = requests.patch(url, json={column: data["text"]})
+    await state.finish()
+    if response.status_code == 200:
+        await message.answer("Information successfully updated.")
+    else:
+        await message.answer("Error updating information.")
+
+############### EDIT CARDS #############
 @dp.callback_query_handler(lambda query: query.data == 'card_settings', user_id=ADMINS)
 async def edit_cards(query: types.CallbackQuery):
     await bot.delete_message(chat_id=query.message.chat.id, message_id=query.message.message_id)
@@ -898,7 +1214,59 @@ async def edit_cards(query: types.CallbackQuery):
         await bot.send_message(query.from_user.id, text="Select card:", reply_markup=keyboard)
     await query.answer()
     return
+@dp.callback_query_handler(lambda query: query.data.startswith('editCard_'), user_id=ADMINS)
+async def EditSelectedCard(query: types.CallbackQuery):
+    product_id = query.data.split('_')[-1]
+    url = f'{BASE_URL}/cards/{product_id}'
+    response = requests.get(url)
+    card = response.json()
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(types.InlineKeyboardButton("Edit name", callback_data=f"changeCard_1_{product_id}"))
+    keyboard.add(types.InlineKeyboardButton("Edit number", callback_data=f"changeCard_2_{product_id}"))
+    keyboard.add(types.InlineKeyboardButton("Edit type", callback_data=f"changeCard_3_{product_id}"))
+    keyboard.add(types.InlineKeyboardButton("Edit description", callback_data=f"changeCard_4_{product_id}"))
+    keyboard.add(types.InlineKeyboardButton("Delete product", callback_data=f"deleteProduct_{product_id}"))
+    text = (f"Selected Card: "
+            f"Card holder: {card['name']} "
+            f"Card number: `{card['number']}`"
+            f"Card type: {card['type']}"
+            f"Description: {card['description']}")
+    await query.message.answer(text, reply_markup=keyboard)
+    await query.answer(f"You selected to edit product with ID {product_id}.")
 
+@dp.callback_query_handler(lambda query: query.data.startswith('changeCard_'), user_id=ADMINS)
+async def editProduct(callback_query: types.CallbackQuery, state: FSMContext):
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
+    action_id, card_id = callback_query.data.split('_')[-2:]
+    async with state.proxy() as data:
+        data['id'] = card_id
+        if action_id == '1':
+            data['type'] = "name"
+            await callback_query.message.answer("Please enter the new name for the product.")
+        elif action_id == '2':
+            data['type'] = "number"
+            await callback_query.message.answer("Please enter the new number for the product.")
+        elif action_id == '3':
+            data['type'] = "type"
+            await callback_query.message.answer("Please enter the new type for the product.")
+        elif action_id == '4':
+            data['type'] = "description"
+            await callback_query.message.answer("Please enter the new description for the product.")
+    await SingleDataCardForm.text.set()
+
+@dp.message_handler(state=SingleDataCardForm.text, user_id=ADMINS)
+async def get_card_data(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['text'] = message.text
+    url = f"{BASE_URL}/cards/{data['id']}/"
+    response = requests.patch(url, json={data['type']: data["text"]})
+    await state.finish()
+    if response.status_code == 200:
+        await message.answer("Information successfully updated.")
+    else:
+        await message.answer("Error updating information.")
+
+########## NEW CARD ###############
 @dp.callback_query_handler(lambda query: query.data == 'addNewCard', user_id=ADMINS)
 async def add_new_card(query: types.CallbackQuery):
     await bot.delete_message(query.message.chat.id, message_id=query.message.message_id)
@@ -926,7 +1294,7 @@ async def process_number(message: types.Message, state: FSMContext):
 
 @dp.callback_query_handler(lambda query: query.data in ["Humo", "Uzcard", "Visa"], state=CardCreation.TypeCard)
 async def process_type(query: types.CallbackQuery, state: FSMContext):
-    await bot.delete_message(query.message.chat.id, message_id=query.message)
+    await bot.delete_message(query.message.chat.id, message_id=query.message.message_id)
     async with state.proxy() as data:
         data['typeCard'] = query.data
     await query.message.answer(f"Card type selected: {query.data}")
