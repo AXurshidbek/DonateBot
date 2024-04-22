@@ -35,7 +35,7 @@
     "lack_of_balance": "You don't have enough money to buy product, Please top up your balance\uD83D\uDCB0",
     "order_success": "Order placed successfully for product:",
     "order_done": "Your order has been completed ✅ to gamer ID:",
-    "order_fail": "Order failed for {product_data['name']} {product_data['quantity']}",
+    "order_fail": "Order failed for ",
     "ask_card": "Please select card \uD83D\uDCB3: ",
     "selected_card": "Selected card: ```{card['number']}```\nMake the payment to card and \nenter the price how much money you pay \uD83D\uDCB0:",
     "screenshot_for_pay": "Please send a screenshot of the transaction: ",

@@ -468,7 +468,7 @@ async def process_gamer_id(message: types.Message, state: FSMContext):
             await bot.send_message(ADMINS, new_order, reply_markup=keyboard)
         else:
             order_fail = await __(message.from_user.id, "order_fail")
-            await message.answer(f"{order_fail}")
+            await message.answer(f"{order_fail} {product_data['name']} {product_data['quantity']}")
     else:
         lack_of_balance = await __(callback_query.from_user.id, "lack_of_balance")
         await bot.send_message(tg_user_id, lack_of_balance)
