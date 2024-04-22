@@ -16,7 +16,7 @@
     "fail_auth": "Authentication failed ❌, Please try again to create account ❗\uFE0F",
     "succes_register": "Successful registration",
     "fail_register": "Registration failed, Try again please ❗\uFE0F",
-    "login_message": "Please enter your email: 📧",
+    "login_me`ssage": "Please enter your email: 📧",
     "email_not_found": "Email not found. Please try again: 🔍",
     "email_format_error": "Please enter valid email address \uD83D\uDCE9:",
     "enter_password": "Please enter your password: #️⃣",
@@ -35,7 +35,7 @@
     "lack_of_balance": "You don't have enough money to buy product, Please top up your balance\uD83D\uDCB0",
     "order_success": "Order placed successfully for product:",
     "order_done": "Your order has been completed ✅ to gamer ID:",
-    "order_fail": "Order failed for ",
+    "order_fail": "Order failed for {product_data['name']} {product_data['quantity']}",
     "ask_card": "Please select card \uD83D\uDCB3: ",
     "selected_card": "Selected card: ```{card['number']}```\nMake the payment to card and \nenter the price how much money you pay \uD83D\uDCB0:",
     "screenshot_for_pay": "Please send a screenshot of the transaction: ",
@@ -66,7 +66,13 @@
     "add_card_number": "Enter new card number 🆕",
     "add_card_description": "Enter description of card 🆕",
     "logout_permission": "Are you sure to LOGOUT? 🚪",
-    "logout": "You have logged out. 🔓"
+
+    "logout": "You have logged out. 🔓",
+    "failed_logout": "Failed to log out",
+    "all_error" : "Error with bot, try again later",
+    "no_found_history": "Order history not found.",
+    "failed_fetch_order": "Failed to fetch order history.",
+
   },
   "ru": {
     "register": "📝 Зарегистрироваться",

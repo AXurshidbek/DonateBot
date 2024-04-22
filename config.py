@@ -119,7 +119,8 @@ async def select_language(query: types.CallbackQuery):
     url = f'{BASE_URL}/user/createTgUser/'
     response = requests.post(url, json=data)
     if response.status_code == 201:
-        logging.info("User created successfully:", response.json())
+        creation_account=await __(query.from_user.id,"creation_account")
+        logging.info(creation_account, response.json())
         USER_LANG[str(tg_user_id)] = lang
         await choice_Sign(query.from_user.id)
         await bot.delete_message(query.message.chat.id, query.message.message_id)
@@ -134,11 +135,11 @@ async def choice_Sign(user_id: int):
     url = f'{BASE_URL}/user/is_authenticated/{user_id}'
     response = requests.get(url)
     if response.status_code == 200:
+        select_option = await __(user_id, "select_option")
         if response.json() == True:
-            await bot.send_message(user_id, "Qanday xizmatdan foydalanasiz")
+            await bot.send_message(user_id, select_option)
             await send_main_menu(user_id)
         else:
-
             register = await __(user_id, "register")
             login = await __(user_id, "login")
             select_option = await __(user_id, "select_option")
@@ -154,7 +155,8 @@ async def choice_Sign(user_id: int):
                 )
             )
     else:
-        await bot.send_message(user_id, "Error with bot, try again later")
+        all_error=await __(user_id,"all_error")
+        await bot.send_message(user_id, all_error)
 
 @dp.message_handler(commands=["start"])
 async def cmd_start(message: types.Message):
@@ -290,7 +292,8 @@ async def start_login(message: types.Message):
     response = requests.get(url)
     if response.status_code == 200:
         if response.json() == True:
-            await bot.send_message(message.from_user.id, "You are now logged in.")
+            logged_in=await __(message.from_user.id,"logged_in")
+            await bot.send_message(message.from_user.id, logged_in)
         else:
             ask_email = await __(message.from_user.id, "ask_email")
             await bot.send_message(message.from_user.id, ask_email)
@@ -468,7 +471,7 @@ async def process_gamer_id(message: types.Message, state: FSMContext):
             await bot.send_message(ADMINS, new_order, reply_markup=keyboard)
         else:
             order_fail = await __(message.from_user.id, "order_fail")
-            await message.answer(f"{order_fail} {product_data['name']} {product_data['quantity']}")
+            await message.answer(f"{order_fail}")
     else:
         lack_of_balance = await __(callback_query.from_user.id, "lack_of_balance")
         await bot.send_message(tg_user_id, lack_of_balance)
@@ -599,9 +602,11 @@ async def orders_history_function(message: types.Message):
                 order_info = f"Date: {order['datetime']}, Price: {order['product']}, Quantity: {order['product']}"
                 await bot.send_message(user_id, order_info)
         else:
-            await bot.send_message(user_id, "No order history found.")
+            no_found_history=await __(message.from_user.id, "no_found_history")
+            await bot.send_message(user_id, no_found_history)
     else:
-        await bot.send_message(user_id, "Failed to fetch order history.")
+        failed_fetch_order=await __(message.from_user.id, "failed_fetch_order")
+        await bot.send_message(user_id, failed_fetch_order)
 
 
 # @dp.message_handler(lambda message: message.text == "Payments history")
@@ -669,9 +674,11 @@ async def payments_history_function(message: types.Message, state: FSMContext):
             keyboard.add(*mbuttons)
             await message.answer(f"{data['index']+1}-{numb} to'lovlar {len(payments)} dan\n\n{text}", reply_markup=keyboard)
         else:
-            await bot.send_message(user_id, "No payment history found.")
+            no_found_history=await __(message.from_user.id, "no_found_history")
+            await bot.send_message(user_id, no_found_history)
     else:
-        await bot.send_message(user_id, "Failed to fetch payment history.")
+        failed_fetch_history=await __(message.from_user.id, "failed_fetch_order")
+        await bot.send_message(user_id, failed_fetch_history)
 
 
 
@@ -764,7 +771,8 @@ async def edit_profile(callback_query: types.CallbackQuery):
     keyboad = types.InlineKeyboardMarkup(row_width=1)
     keyboad.add(types.InlineKeyboardButton('Yes', callback_data='logoutConfirm_yes'))
     keyboad.add(types.InlineKeyboardButton('No', callback_data='LogoutConfirm_no'))
-    await callback_query.message.answer("Are you sure to logout?", reply_markup=keyboad)
+    log_permission=await __(callback_query.from_user.id, "logout_permission")
+    await callback_query.message.answer(log_permission, reply_markup=keyboad)
 
 @dp.callback_query_handler(lambda query: query.data.startswith('logoutConfirm_'))
 async def logout_confirm(callback_query: types.CallbackQuery):
@@ -777,11 +785,13 @@ async def logout_confirm(callback_query: types.CallbackQuery):
         if response.status_code == 200:
             is_true = response.json()
             if not is_true:
-                await callback_query.message.answer("Logged out successfully.")
+                logout=await __(callback_query.from_user.id, "logout")
+                await callback_query.message.answer(logout)
                 await choice_Sign(callback_query.from_user.id)
                 return
     else:
-        await callback_query.message.answer("Profildan chiqilmadi.")
+        failed_logout=await __(callback_query.from_user.id, "failed_logout")
+        await callback_query.message.answer(failed_logout)
 
 
 
